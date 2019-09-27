@@ -120,7 +120,7 @@ ggplot(data = train_data) +
 2. Create and fit a linear model to predict Temperature from Wind using the training set
 
 ```{r}
-help(train) # fits predictive models
+#help(train) # fits predictive models
 
 linear_regression <- train( Temp ~ Wind, data = train_data, method = "lm")
 
@@ -162,7 +162,7 @@ p <- predict(model, newdata = test))
 ```{r}
 # help(predict)
 Temp_pred <- predict(linear_regression, newdata = test_data)
-Temp_pred
+summary(Temp_pred)
 
 # if there is a typo while splitting the data, then there would be dimension-mismatch problem during predict()
 ```
@@ -229,7 +229,7 @@ w0
 w1
 # 2a. plot predicted values (test data):
 plot(x = test_data$Wind,y = Temp_pred, pch = 1, main ="Predicted Temperature values based on observed Wind values, test set")
-# 2b. plot regression line on it (doesn't work):
+# 2b. plot regression line on it :
 abline(w0,w1,col='red') 
 
 # 3. plot original test values:
@@ -313,7 +313,7 @@ plot(cv_R_regression, main = "\n Ridge Regression with cross validation")
 
 opt_lambda <- cv_R_regression$lambda.min
 opt_lambda
-# It is 0.2511886
+
 ```
 
 ```{r}
