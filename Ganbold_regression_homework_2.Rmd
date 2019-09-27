@@ -1,0 +1,360 @@
+---
+title: "Regression"
+author: "Anna Yeaton"
+date: "Fall 2019"
+output:
+  html_document:
+    df_print: paged
+fontsize: 11pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = T)
+```
+
+# Lab Section
+
+In this lab, we will go over regression. We will be using the caret package in R. https://topepo.github.io/caret/train-models-by-tag.html
+
+# Perfomance Metrics 
+
+## Residual 
+
+Deviation of the observed value to the estimated value (sample mean)
+$$residual=y_i - \hat{y_i}$$
+where $\hat{y_i}$ is the estimated value
+
+## Mean Squared Error (MSE)
+
+$$MSE=\frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y_i})^2$$
+
+## Root Mean Squared Error (RMSE)
+Same units as original data.
+
+$$RMSE=\sqrt{MSE}$$
+
+## L2 regularization : Ridge regression. Regularize by adding the sum of the coefficients, squared, to the function. 
+
+$$Ridge Regression=\sum_{i=1}^{n}(y_i - w_0 - \sum_{j=1}^{p}w_jx_{ij})^2 + \lambda\sum_{j=1}^p(w_j)^2$$
+
+## L1 regularization : Lasso Regression. Regularize by adding the sum of the absolute value of the coefficients to the model. Coefficient estimates may be pushed to zero -- Lasso can perform variable selection
+
+$$Lasso Regression=\sum_{i=1}^{n}(y_i - w_0 - \sum_{j=1}^{p}w_jx_{ij})^2 + \lambda\sum_{j=1}^p|w_j|$$
+
+
+\newpage
+
+### The broad steps of Machine learning in R. 
+
+1. Split the data into training and test. Set test aside. 
+
+2. Fit a good model to the training data. 
+
+3. See how your model did on the training data.
+
+4. Test how your model performs on the test data. 
+
+# Regression
+
+```{r, include=FALSE}
+#.libPaths()
+#install.packages("glmnet")
+library(glmnet)
+library(caret)
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(ggfortify)
+library(tidyverse)
+library(broom)
+
+
+#Mauna Loa CO2 concentrations
+data(airquality)
+head(airquality)
+```
+
+
+1. Split data into training and test set (75% in train set, 25% in test set)
+
+```{r}
+library(caret)
+#help("createDataPartition")
+
+train_Index = createDataPartition(airquality$Temp, p = 0.75, list=F) # partitions by indexed rows
+train_data <- airquality[train_Index, ]
+
+test_Index = createDataPartition(airquality$Temp, p = 0.25, list=F) # rows for test set by indexes 
+test_data <- airquality[test_Index,]
+
+#checking:
+head(train_Index)
+str(train_Index) # 117 tagged obs
+head(train_data)
+str(train_data)
+
+head(test_Index)
+str(test_Index) # 40 tagged obs
+head(test_data)
+str(test_data) 
+```
+
+
+### Linear Regression
+
+* Assumes a linear relationship. 
+* Independent variables should not be correlated (no mulitcollinearity)
+* The number of observations should be greater than the number of independent variables.
+
+Note: RSS = SSE
+$$RSS=\sum(y_i - \hat{y_i})^2$$
+We will predict the response of the Temperature based on Wind. 
+
+This is the data we will fit a linear model to. 
+```{r}
+ggplot(data = train_data) +
+   geom_point(aes(x = train_data$Wind, y = train_data$Temp)) +
+   theme_bw()
+```
+
+2. Create and fit a linear model to predict Temperature from Wind using the training set
+
+```{r}
+help(train) # fits predictive models
+
+linear_regression <- train( Temp ~ Wind, data = train_data, method = "lm")
+
+```
+
+
+3. Vizualize how your model performed on the train data by plotting the regression line on top of the train data points. 
+
+```{r}
+library(ggplot2)
+
+ggplot(data = train_data, aes(x = Wind, y = Temp)) +
+   geom_point(aes(x = train_data$Wind, y = train_data$Temp))+
+  stat_smooth(method = 'lm', col = 'red') 
+
+# Other options: geom_abline instead of stat_smooth
+# + geom_abline(intercept, slope, col='')
+# or just abline (w0, w1, col=)
+```
+
+
+4. Explore how the model performs on the test data. For Linear Regression:
+
+* The residuals should be close to zero.
+* There should be equal variance around the regression line (homoscedasticity).
+* Residuals should be normally distributed.
+* Independent variables and residuals should not be correlated.
+
+
+
+4 a) See how the model performs on the test data
+
+(P.S. 
+Fit lm model on train: model
+model <- lm(y ~ ., data = train) 
+Predict on test: p
+p <- predict(model, newdata = test))
+
+```{r}
+# help(predict)
+Temp_pred <- predict(linear_regression, newdata = test_data)
+Temp_pred
+
+# if there is a typo while splitting the data, then there would be dimension-mismatch problem during predict()
+```
+
+4 b) Look at the residuals. Are they close to zero?
+(P.S. residuals are the distances betwen observed and predicted values)
+
+```{r}
+#look at the median residual value. Close to zero is best
+
+summary(linear_regression)
+# Median Residual Value is 1.589 . Comes somewhat close to zero but not quite yet.
+```
+
+
+*Optional: 
+
+calculating errors and sq.root median sq.errors (RMSE):
+error is difference predicted value and observed one.
+
+```{r}
+error <- Temp_pred - test_data[["Temp"]]
+RMSE = sqrt(mean(error^2))
+RMSE
+```
+
+P.S. From Wikipedia "errors and residuals":
+In statistics and optimization, errors and residuals are two closely related and easily confused measures of the deviation of an observed value of an element of a statistical sample from its "theoretical value". The error (or disturbance) of an observed value is the deviation of the observed value from the (unobservable) true value of a quantity of interest (for example, a population mean), and the residual of an observed value is the difference between the observed value and the estimated value of the quantity of interest (for example, a sample mean). The distinction is most important in regression analysis, where the concepts are sometimes called the regression errors and regression residuals and where they lead to the concept of studentized residuals.
+
+
+4 c) Plot predicted temperature (= y) vs observed temperature (=x). A strong model should show a strong correlation
+
+```{r}
+
+plot(x = test_data[["Temp"]], y = Temp_pred, main = "\n Is there a linear relationship \n between observed(x) and predicted(y) temperature values? \n" )
+
+# Conclusion: not a strong relationship vizualized...
+```
+```{r}
+# Optional:
+
+cor.test(test_data$Temp, Temp_pred)
+
+# correlation coeff= +0.5 -> a positive but weak relationship. p-value is low to support this hypoth. 95% CI looks good.
+```
+
+
+
+4 d) Visualize the predicted values in relation to the real data points. Look for homoscedasticity
+(* homoscedasticity is a phenomena when there should be equal variance around the regression line.)
+
+
+```{r}
+
+# 1. Extract coefficients from the model
+# 2. plot the regression line on the predicted values
+# 3. plot the original test values
+
+# 1. regression coefficients: 
+# finalModel is a method of a model to extract its coefficients
+w0 = linear_regression$finalModel$coefficients[1]
+w1 = linear_regression$finalModel$coefficients[2]
+w0
+w1
+# 2a. plot predicted values (test data):
+plot(x = test_data$Wind,y = Temp_pred, pch = 1, main ="Predicted Temperature values based on observed Wind values, test set")
+# 2b. plot regression line on it (doesn't work):
+abline(w0,w1,col='red') 
+
+# 3. plot original test values:
+ggplot(test_data) +
+geom_point(aes(test_data$Wind, test_data$Temp, col="Obs_temp"))+
+geom_point(aes(test_data$Wind, Temp_pred, col="Temp_pred"))+
+geom_segment(aes(x= Wind, y=Temp, xend = Wind, yend = Temp_pred))
+#P.S. observed: x,y
+#predicted: xend, yend
+```
+
+
+4 e) Residuals should be normally distributed. Plot the density of the residuals
+```{r}
+residuals_lin <- residuals(linear_regression)
+head(residuals_lin)
+
+ggplot(x=residuals_lin) +
+  geom_density(aes(residuals_lin))
+```
+
+
+4 f) Independent variables(x) and residuals (of model) should not be correlated
+```{r}
+cor.test(train_data$Wind, resid(linear_regression))
+# the correlation is very small - good
+```
+
+
+### Linear Regression with Regularization
+
+5. Create a linear model using L1 or L2 regularization to predict Temperature from Wind and Month variables. Plot your predicted values and the real Y values on the same plot. 
+
+
+I chose Tikhonov or Ridge Regularization (L2) for linear regression. It is to introduce bias to the fit line so that the variance ( SSR) of test data will reduce at the price of less fit model for test data.
+
+The λ>=0 parameter is a scalar to be learnt through cross validation method. When labda=0, RR=LR. The bigger labda, the small is the slope of RR, the less sensitive the size is to weight.
+
+RR(LS) fits less accurately than LR(LS) but is more genralizable (less sensitive to outliers in test data). This is done through introducing bias (lambda *w1^2= labmda*penalty).
+LR = w0 +w1 * WEIGHT () weight is our parameter or a difference between parameter values 
+RR(size~weight) = w0 +w1 * WEIGHT -labda*(w1^2) 
+in LR: y~x
+in RR: size~weight 
+RRslope < LRslope, this means in RR size is less sensitive to change in weight of parameters than it is in LR.
+
+
+Implementation:
+
+(tutorial from: https://drsimonj.svbtle.com/ridge-regression-with-glmnet)
+
+1. Determining x and y for Ridge Regression with glmnet():
+
+```{r}
+
+y <- airquality$Temp
+x <- airquality %>% select(Wind, Month) %>% data.matrix()
+
+```
+
+2. Calculating Ridge Regression with glmnet package:
+
+```{r}
+# RIDGE REGRESSION
+# glmnet() is a function for RR. lambda is a hyperparameter, a measure to reduce the slope. alpha=0 in case of ridge  regularization:
+lambdas <- 10^seq(3, -2, by = -.1)
+R_regression <- glmnet(x, y, alpha = 0, lambda = lambdas)
+summary(R_regression)
+
+#RIDGE REGRESSION on train WITH CROSS VALIDATION:
+# If the model is run many times for different values of lambda, we can find a value for lambda that is optimal (which yields lowest variance/SSR). There is a function to perform RR with (usually x10 fold) cross validation: cv.glmnet()
+cv_R_regression <- cv.glmnet(x, y, alpha = 0, lambda = lambdas)
+cv_R_regression
+
+# cv.glmnet() uses cross-validation to work out how well each model generalises, which we can visualise as:
+plot(cv_R_regression, main = "\n Ridge Regression with cross validation")
+
+```
+
+```{r}
+# The lowest point in the curve (plot above) indicates the optimal lambda: the log value of lambda that best minimised the error in cross-validation. We can extract this values as:
+
+opt_lambda <- cv_R_regression$lambda.min
+opt_lambda
+# It is 0.2511886
+```
+
+```{r}
+# And we can extract all of the FITted models (like the object returned by glmnet()) via:
+
+fit <- cv_R_regression$glmnet.fit
+summary(fit)
+```
+
+
+3. Predicting new data:
+
+```{r}
+# These are the two things we need to predict new data. For example, predicting values and computing an R2 value for the data we trained on:
+y_predicted <- predict(fit, s = opt_lambda, newx = x)
+head(y_predicted)
+```
+
+
+Plotting predicted temperature against observed one:
+
+```{r}
+
+ggplot()+
+  geom_point(aes(x = y_predicted, y = y, col = "y_predicted", col="y"))+
+  xlab("predicted temperature with Ridge Regression")+
+  ylab("observed temperature")
+
+```
+4. Optional:
+```{r}
+# Sum of Squares Total and Error
+sst <- sum((y - mean(y))^2)
+sst #13617.88 this is very high...
+sse <- sum((y_predicted - y)^2)
+sse #9144.541 very high...
+
+# R squared
+rsq <- 1 - sse / sst
+rsq #0.32 
+# The optimal model has accounted for 32% of the variance in the train data. That is very low...
+```
+
+Thank you!
